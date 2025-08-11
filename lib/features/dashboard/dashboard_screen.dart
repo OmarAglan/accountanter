@@ -3,12 +3,15 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:accountanter/theme/app_colors.dart';
 import 'widgets/kpi_card.dart';
 import 'widgets/quick_actions.dart';
+import 'widgets/action_item_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // --- FIX: Changed ListView back to Column ---
+    // The parent SingleChildScrollView in main_screen.dart will handle scrolling.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -20,14 +23,16 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(height: 16),
         _buildKpiGrid(),
         const SizedBox(height: 32),
+        _buildBottomCards(context),
+        const SizedBox(height: 32),
         _buildRecentActivity(context),
-        // TODO: Add Cash Flow and Action Required cards later
       ],
     );
   }
 
+  // ... (All other methods remain exactly the same) ...
+
   Widget _buildKpiGrid() {
-    // This uses LayoutBuilder to create a responsive grid
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = 4;
@@ -40,7 +45,7 @@ class DashboardScreen extends StatelessWidget {
           mainAxisSpacing: 24,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 2.0, // Adjust this ratio as needed
+          childAspectRatio: (crossAxisCount == 1) ? 3.0 : 2.0,
           children: const [
             KpiCard(
               title: 'Total Receivables',
@@ -80,8 +85,141 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildBottomCards(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 1000) {
+          return Column(
+            children: [
+              _buildCashFlowCard(context),
+              const SizedBox(height: 24),
+              _buildActionRequiredCard(context),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildCashFlowCard(context)),
+            const SizedBox(width: 24),
+            Expanded(child: _buildActionRequiredCard(context)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCashFlowCard(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.success, width: 4)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(LucideIcons.trendingUp, color: AppColors.success, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Cash Flow This Month', style: textTheme.titleLarge),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildCashFlowItem(context, 'Money In', '\$35,650', AppColors.success, true),
+              const SizedBox(height: 16),
+              _buildCashFlowItem(context, 'Money Out', '\$12,340', AppColors.destructive, false),
+              const Divider(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Net Cash Flow:', style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
+                  Text('+\$23,310', style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, color: AppColors.success, fontFamily: 'monospace')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCashFlowItem(BuildContext context, String label, String value, Color color, bool isUp) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.bodyMedium),
+              Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: color, fontFamily: 'monospace', fontSize: 20)),
+            ],
+          ),
+          Icon(isUp ? LucideIcons.trendingUp : LucideIcons.trendingDown, color: color, size: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionRequiredCard(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.warning, width: 4)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(LucideIcons.triangleAlert, color: AppColors.warning, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Action Required', style: textTheme.titleLarge),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const ActionItemCard(
+                icon: LucideIcons.circleX,
+                color: AppColors.destructive,
+                title: '3 Overdue Invoices',
+                subtitle: 'Total: \$7,150 - Follow up required',
+              ),
+              const SizedBox(height: 16),
+              const ActionItemCard(
+                icon: LucideIcons.triangleAlert,
+                color: AppColors.warning,
+                title: '5 Invoices Due Soon',
+                subtitle: 'Due within 7 days - Send reminders',
+              ),
+              const SizedBox(height: 16),
+              const ActionItemCard(
+                icon: LucideIcons.fileText,
+                color: AppColors.accent,
+                title: '2 Draft Invoices',
+                subtitle: 'Ready to be sent to clients',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRecentActivity(BuildContext context) {
-    // Mock data from your React component
     final activities = [
       {'icon': LucideIcons.circleCheck, 'color': AppColors.success, 'title': 'Invoice #1024 paid', 'subtitle': '\$2,500 from Acme Corp', 'time': '2 hours ago'},
       {'icon': LucideIcons.users, 'color': AppColors.info, 'title': "New client 'Tech Solutions' added", 'subtitle': 'Contact: hello@techsolutions.com', 'time': '4 hours ago'},
@@ -102,7 +240,7 @@ class DashboardScreen extends StatelessWidget {
                 Text('Recent Activity', style: Theme.of(context).textTheme.titleLarge),
               ],
             ),
-             Text(
+            Text(
               'Latest updates and transactions',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
