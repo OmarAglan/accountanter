@@ -7,10 +7,10 @@ import '../../data/database.dart';
 import '../../services/secure_storage_service.dart';
 
 class AuthService extends ChangeNotifier {
-  final AppDatabase database; 
+  final database = AppDatabase.instance;
   final _secureStorage = SecureStorageService();
 
-  AuthService() : database = AppDatabase();
+  AuthService();
 
   // --- Private Helper Methods ---
   String _hashPassword(String password) {

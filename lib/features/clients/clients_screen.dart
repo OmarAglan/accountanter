@@ -16,17 +16,18 @@ class ClientsScreen extends StatefulWidget {
 class _ClientsScreenState extends State<ClientsScreen> {
   late final AppDatabase _database;
   late Stream<List<Client>> _clientsStream;
+  String _searchTerm = '';
+  String _filterType = 'All Clients';
 
   @override
   void initState() {
     super.initState();
-    _database = AppDatabase();
+    _database = AppDatabase.instance; 
     _clientsStream = _database.watchAllClients();
   }
 
   @override
   void dispose() {
-    _database.close();
     super.dispose();
   }
   
@@ -34,11 +35,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
     showDialog(
       context: context,
       builder: (context) => AddEditClientDialog(
-        onSave: (name, email, type) {
+        onSave: (name, email, type, balance) { // Updated to accept balance
           final newClient = ClientsCompanion.insert(
             name: name,
             email: Value(email),
             type: type,
+            balance: Value(type == 'Creditor' ? -balance : balance), // Make balance negative for creditors
           );
           _database.insertClient(newClient);
         },
@@ -51,24 +53,41 @@ class _ClientsScreenState extends State<ClientsScreen> {
     return StreamBuilder<List<Client>>(
       stream: _clientsStream,
       builder: (context, snapshot) {
-        final clients = snapshot.data ?? [];
+        final allClients = snapshot.data ?? [];
         
-        // --- FIX: Changed ListView to Column ---
+        // Apply filtering logic
+        final filteredClients = allClients.where((client) {
+          final searchLower = _searchTerm.toLowerCase();
+          final nameMatches = client.name.toLowerCase().contains(searchLower);
+          final emailMatches = client.email?.toLowerCase().contains(searchLower) ?? false;
+
+          final typeMatches = _filterType == 'All Clients' ||
+                              (_filterType == 'Debtors' && client.type == 'Debtor') ||
+                              (_filterType == 'Creditors' && client.type == 'Creditor');
+
+          return (nameMatches || emailMatches) && typeMatches;
+        }).toList();
+
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Align content to the start
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context),
             const SizedBox(height: 24),
-            _buildSummaryCards(clients),
+            _buildSummaryCards(allClients),
             const SizedBox(height: 24),
-            _buildClientTable(context, clients),
+            _buildFilterBar(),
+            const SizedBox(height: 24),
+            _buildClientTable(context, filteredClients, allClients.length),
           ],
         );
       },
     );
   }
 
+  // --- WIDGET BUILDER METHODS ---
+
   Widget _buildHeader(BuildContext context) {
+    // This is the same as before
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -77,7 +96,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           children: [
             Text('Clients', style: Theme.of(context).textTheme.headlineMedium),
             Text(
-              'Manage your client relationships and balances.',
+              'Manage your client relationships and outstanding balances.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -100,11 +119,12 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final totalReceivables = clients.where((c) => c.balance > 0).fold(0.0, (sum, c) => sum + c.balance);
     final totalPayables = clients.where((c) => c.balance < 0).fold(0.0, (sum, c) => sum + c.balance.abs());
     final debtors = clients.where((c) => c.type == 'Debtor').length;
+    final creditors = clients.where((c) => c.type == 'Creditor').length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = constraints.maxWidth < 1100 ? 2 : 4;
-        double childAspectRatio = constraints.maxWidth < 600 ? 2.0 : 2.5;
+        double childAspectRatio = constraints.maxWidth < 600 ? 2.5 : 3.0;
 
         return GridView.count(
           crossAxisCount: crossAxisCount,
@@ -115,53 +135,161 @@ class _ClientsScreenState extends State<ClientsScreen> {
           childAspectRatio: childAspectRatio,
           children: [
             ClientSummaryCard(icon: LucideIcons.users, title: 'Total Clients', value: '$totalClients', color: AppColors.primary),
-            ClientSummaryCard(icon: LucideIcons.trendingUp, title: 'Total Receivables', value: '\$${totalReceivables.toStringAsFixed(2)}', color: AppColors.success),
-            ClientSummaryCard(icon: LucideIcons.trendingDown, title: 'Total Payables', value: '\$${totalPayables.toStringAsFixed(2)}', color: AppColors.warning),
-            ClientSummaryCard(icon: LucideIcons.userCheck, title: 'Debtors', value: '$debtors', color: AppColors.info),
+            ClientSummaryCard(icon: LucideIcons.creditCard, title: 'Total Receivables', value: '\$${totalReceivables.toStringAsFixed(2)}', color: AppColors.success),
+            ClientSummaryCard(icon: LucideIcons.banknote, title: 'Total Payables', value: '\$${totalPayables.toStringAsFixed(2)}', color: AppColors.warning),
+            ClientSummaryCard(icon: LucideIcons.users, title: 'Client Breakdown', value: '$debtors  /  $creditors', subtitle: 'Debtors / Creditors', color: AppColors.info),
           ],
         );
       }
     );
   }
-
-  Widget _buildClientTable(BuildContext context, List<Client> clients) {
+  
+  Widget _buildFilterBar() {
     return Card(
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('Client Name')),
-          DataColumn(label: Text('Type')),
-          DataColumn(label: Text('Balance'), numeric: true),
-          DataColumn(label: Text('Email')),
-          DataColumn(label: Text('Actions')),
-        ],
-        rows: clients.map((client) => DataRow(
-          cells: [
-            DataCell(Text(client.name)),
-            DataCell(
-              Chip(
-                label: Text(client.type),
-                backgroundColor: client.type == 'Debtor' ? AppColors.info.withOpacity(0.1) : AppColors.accent.withOpacity(0.1),
-                labelStyle: TextStyle(color: client.type == 'Debtor' ? AppColors.info : AppColors.accent),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                visualDensity: VisualDensity.compact,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                onChanged: (value) => setState(() => _searchTerm = value),
+                decoration: const InputDecoration(
+                  hintText: 'Search clients by name or email...',
+                  prefixIcon: Icon(LucideIcons.search, size: 16),
+                  isDense: true,
+                ),
               ),
             ),
-            DataCell(Text(
-              '${client.balance < 0 ? '-' : ''}\$${client.balance.abs().toStringAsFixed(2)}',
-              style: TextStyle(
-                color: client.balance == 0 ? null : (client.balance > 0 ? AppColors.destructive : AppColors.success),
-                fontFamily: 'monospace'
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 200,
+              child: DropdownButtonFormField<String>(
+                value: _filterType,
+                decoration: const InputDecoration(isDense: true),
+                items: ['All Clients', 'Debtors', 'Creditors']
+                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _filterType = value);
+                  }
+                },
               ),
-            )),
-            DataCell(Text(client.email ?? 'N/A')),
-            DataCell(Row(
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClientTable(BuildContext context, List<Client> clients, int totalCount) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(icon: const Icon(LucideIcons.filePenLine, size: 16), onPressed: () { /* TODO: Edit */ }),
-                IconButton(icon: const Icon(LucideIcons.trash2, size: 16, color: AppColors.destructive), onPressed: () { /* TODO: Delete */ }),
+                Text('Client List', style: textTheme.titleLarge),
+                Text('${clients.length} of $totalCount clients', style: textTheme.bodyMedium),
               ],
-            )),
-          ]
-        )).toList(),
+            ),
+          ),
+          const Divider(height: 1),
+          // Custom Table Header
+          Container(
+            color: AppColors.muted.withOpacity(0.5),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: Row(
+              children: [
+                _buildHeaderCell('Client Name', flex: 3),
+                _buildHeaderCell('Type', flex: 2),
+                _buildHeaderCell('Outstanding Balance', flex: 2, alignment: TextAlign.right),
+                _buildHeaderCell('Email', flex: 3),
+                _buildHeaderCell('Actions', flex: 1, alignment: TextAlign.center),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Custom Table Body
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: clients.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final client = clients[index];
+              return _buildDataRow(client);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderCell(String text, {int flex = 1, TextAlign alignment = TextAlign.left}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        textAlign: alignment,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildDataRow(Client client) {
+    return InkWell(
+      onTap: () {}, // For future navigation to client detail page
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        child: Row(
+          children: [
+            Expanded(flex: 3, child: Text(client.name)),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Chip(
+                  label: Text(client.type),
+                  backgroundColor: client.type == 'Debtor' ? AppColors.info.withOpacity(0.1) : AppColors.accent.withOpacity(0.1),
+                  labelStyle: TextStyle(color: client.type == 'Debtor' ? AppColors.info : AppColors.accent, fontWeight: FontWeight.w500),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                '${client.balance < 0 ? '-' : ''}\$${client.balance.abs().toStringAsFixed(2)}',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: client.balance == 0 ? null : (client.balance > 0 ? AppColors.destructive : AppColors.success),
+                  fontFamily: 'monospace'
+                ),
+              ),
+            ),
+            Expanded(flex: 3, child: Text(client.email ?? 'N/A')),
+            Expanded(
+              flex: 1,
+              child: Align(
+                alignment: Alignment.center,
+                child: PopupMenuButton<String>(
+                  onSelected: (value) { /* TODO: Handle actions */ },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(value: 'edit', child: Text('Edit')),
+                    const PopupMenuItem<String>(value: 'delete', child: Text('Delete', style: TextStyle(color: AppColors.destructive))),
+                  ],
+                  icon: const Icon(LucideIcons.moveHorizontal, size: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
