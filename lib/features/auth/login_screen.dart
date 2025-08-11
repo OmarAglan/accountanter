@@ -1,8 +1,12 @@
+import 'package:accountanter/features/auth/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+
+import '../../data/database.dart'; // Import your database
 
 class LoginScreen extends StatefulWidget {
-  // The onLogin callback is equivalent to the one in your React component
   final VoidCallback onLogin;
 
   const LoginScreen({super.key, required this.onLogin});
@@ -17,18 +21,46 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  void _handleSubmit() {
-    // This is equivalent to your handleSubmit function
-    if (_formKey.currentState?.validate() ?? false) {
-      widget.onLogin();
-    }
+  late final AppDatabase _database;
+
+  @override
+  void initState() {
+    super.initState();
+    _database = AppDatabase();
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _database.close();
     super.dispose();
+  }
+
+  String _hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  void _handleSubmit() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      final email = _emailController.text;
+      final password = _passwordController.text;
+      final hashedPassword = _hashPassword(password);
+
+      final user = await _database.getUserByEmail(email);
+
+      if (user != null && user.passwordHash == hashedPassword) {
+        widget.onLogin();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid email or password.')),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -66,10 +98,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'Accountanter',
                       textAlign: TextAlign.center,
-                      style: textTheme.headlineMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 24
-                      ),
+                      style: textTheme.headlineMedium
+                          ?.copyWith(color: Theme.of(context).colorScheme.primary, fontSize: 24),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -124,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                       ),
-                       validator: (value) {
+                      validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your password';
                         }
@@ -140,14 +170,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Forgot Password Link
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          // TODO: Handle forgot password logic
-                        },
-                        child: const Text('Forgot Password?'),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            // TODO: Handle forgot password logic
+                          },
+                          child: const Text('Forgot Password?'),
+                        ),
+                        const Text('|'),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => const RegistrationScreen(),
+                            ));
+                          },
+                          child: const Text('Register'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

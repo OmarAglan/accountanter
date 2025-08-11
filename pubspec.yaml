@@ -38,6 +38,16 @@ dependencies:
   google_fonts: ^6.3.0
   # The following adds the Lucide Icons package to your application.
   lucide_flutter: ^0.539.0
+  # The following adds the Drift package to your application.
+  drift: ^2.28.1
+  # The following adds the SQLite3 Flutter libs package to your application.
+  sqlite3_flutter_libs: ^0.5.39 # Ships the latest SQLite version
+  # The following adds the Path Provider package to your application.
+  path_provider: ^2.1.5
+  # The following adds the Path package to your application.
+  path: ^1.9.1
+  # The following adds the Crypto package to your application.
+  crypto: ^3.0.6 # For password hashing
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +59,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  # The following adds the Drift Dev package to your application.
+  drift_dev: ^2.28.1
+  # The following adds the Build Runner package to your application.
+  build_runner: ^2.6.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
