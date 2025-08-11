@@ -27,59 +27,67 @@ class KpiCard extends StatelessWidget {
         side: const BorderSide(color: AppColors.border),
         borderRadius: BorderRadius.circular(12),
       ),
+      // Prevents the content from painting outside the card's rounded corners
+      clipBehavior: Clip.antiAlias,
       child: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor, width: 4)),
+          // The line below is important for the border to respect the card's rounded corners
           borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
         ),
-        child: Padding(
+        // --- FIX STARTS HERE ---
+        // Wrap the content in a SingleChildScrollView to prevent overflow
+        child: SingleChildScrollView(
+          child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(title, style: textTheme.bodyMedium),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.muted,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, size: 20, color: AppColors.mutedForeground),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                value,
-                style: textTheme.headlineMedium?.copyWith(
-                  fontFamily: 'monospace', // For financial figures
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text.rich(
-                TextSpan(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextSpan(
-                      text: change,
-                      style: TextStyle(
-                        color: isPositiveChange ? AppColors.success : AppColors.destructive,
-                        fontWeight: FontWeight.w500,
+                    Text(title, style: textTheme.bodyMedium),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.muted,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    TextSpan(
-                      text: ' from last month',
-                      style: textTheme.bodyMedium,
+                      child: Icon(icon, size: 20, color: AppColors.mutedForeground),
                     ),
                   ],
                 ),
-              ),
-            ],
+              const SizedBox(height: 12),
+                Text(
+                  value,
+                  style: textTheme.headlineMedium?.copyWith(
+                    fontFamily: 'monospace', // For financial figures
+                    letterSpacing: -1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: change,
+                        style: TextStyle(
+                          color: isPositiveChange ? AppColors.success : AppColors.destructive,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' from last month',
+                        style: textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        // --- FIX ENDS HERE ---
       ),
     );
   }
