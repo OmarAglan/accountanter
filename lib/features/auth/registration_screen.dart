@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 import 'package:drift/drift.dart' hide Column;
 
-import '../../data/database.dart'; // Import your database
+import 'auth_service.dart';
+import '../../data/database.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -18,13 +16,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-
-  late final AppDatabase _database;
+  
+  late final AuthService _authService;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _database = AppDatabase();
+    _authService = AuthService(AppDatabase());
   }
 
   @override
@@ -32,45 +31,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _database.close();
     super.dispose();
-  }
-
-  String _hashPassword(String password) {
-    final bytes = utf8.encode(password); // data being hashed
-    final digest = sha256.convert(bytes);
-    return digest.toString();
   }
 
   void _handleRegister() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final email = _emailController.text;
-      final password = _passwordController.text;
+      setState(() => _isLoading = true);
 
-      // Check if user already exists
-      final existingUser = await _database.getUserByEmail(email);
-      if (existingUser != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('An account with this email already exists.')),
-          );
-        }
-        return;
-      }
-      
-      // Create new user
-      final newUser = UsersCompanion(
-        email: Value(email),
-        passwordHash: Value(_hashPassword(password)),
+      final result = await _authService.register(
+        _emailController.text,
+        _passwordController.text,
       );
       
-      await _database.insertUser(newUser);
+      setState(() => _isLoading = false);
+      
+      if (!mounted) return;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful! Please log in.')),
-        );
-        Navigator.of(context).pop(); // Go back to the login screen
+      final message = switch (result) {
+        AuthResult.success => 'Registration successful! Please log in.',
+        AuthResult.userExists => 'An account with this email already exists.',
+        _ => 'Registration failed. Please try again.',
+      };
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+
+      if (result == AuthResult.success) {
+        Navigator.of(context).pop();
       }
     }
   }
@@ -97,14 +83,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (v) => v!.isEmpty ? 'Email is required' : null,
+                      validator: (v) {
+                         if (v == null || v.isEmpty || !v.contains('@')) {
+                          return 'Please enter a valid email';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
                       decoration: const InputDecoration(labelText: 'Password'),
-                      validator: (v) => v!.length < 6 ? 'Password must be at least 6 characters' : null,
+                      validator: (v) => v != null && v.length < 6 ? 'Password must be at least 6 characters' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -115,8 +106,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                     const SizedBox(height: 32),
                     ElevatedButton(
-                      onPressed: _handleRegister,
-                      child: const Text('Register'),
+                      onPressed: _isLoading ? null : _handleRegister,
+                      child: _isLoading
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Register'),
                     ),
                     const SizedBox(height: 16),
                     TextButton(

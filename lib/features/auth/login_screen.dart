@@ -1,10 +1,10 @@
+import 'package:accountanter/features/auth/forgot_password_screen.dart';
 import 'package:accountanter/features/auth/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 
-import '../../data/database.dart'; // Import your database
+import 'auth_service.dart';
+import '../../data/database.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -21,44 +21,44 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  late final AppDatabase _database;
+  late final AuthService _authService;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _database = AppDatabase();
+    _authService = AuthService(AppDatabase());
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _database.close();
     super.dispose();
-  }
-
-  String _hashPassword(String password) {
-    final bytes = utf8.encode(password);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
   }
 
   void _handleSubmit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final email = _emailController.text;
-      final password = _passwordController.text;
-      final hashedPassword = _hashPassword(password);
+      setState(() => _isLoading = true);
 
-      final user = await _database.getUserByEmail(email);
+      final result = await _authService.login(
+        _emailController.text,
+        _passwordController.text,
+      );
 
-      if (user != null && user.passwordHash == hashedPassword) {
+      setState(() => _isLoading = false);
+      
+      if (!mounted) return;
+
+      if (result == AuthResult.success) {
         widget.onLogin();
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid email or password.')),
-          );
-        }
+        final message = (result == AuthResult.userNotFound || result == AuthResult.wrongPassword)
+          ? 'Invalid email or password.'
+          : 'An unexpected error occurred.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
       }
     }
   }
@@ -165,17 +165,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // Login Button
                     ElevatedButton(
-                      onPressed: _handleSubmit,
-                      child: const Text('Login'),
+                      onPressed: _isLoading ? null : _handleSubmit,
+                      child: _isLoading
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Login'),
                     ),
                     const SizedBox(height: 16),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         TextButton(
                           onPressed: () {
-                            // TODO: Handle forgot password logic
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => const ForgotPasswordScreen(),
+                            ));
                           },
                           child: const Text('Forgot Password?'),
                         ),
