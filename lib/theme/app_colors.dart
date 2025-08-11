@@ -29,5 +29,7 @@ class AppColors {
   static const Color sidebar = Color(0xFF2c3e50);
   static const Color sidebarForeground = Color(0xFFecf0f1);
   static const Color sidebarPrimary = Color(0xFF1abc9c);
+  static const Color sidebarPrimaryForeground = Color(0xFFffffff); 
   static const Color sidebarAccent = Color(0xFF34495e);
+  static const Color sidebarBorder = Color(0xFF34495e);
 }

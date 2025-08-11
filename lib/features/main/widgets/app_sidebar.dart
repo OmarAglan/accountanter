@@ -1,3 +1,4 @@
+// lib/features/main/widgets/app_sidebar.dart
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:accountanter/theme/app_colors.dart';
@@ -108,14 +109,48 @@ class AppSidebar extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
+    // This is a placeholder for Settings and Help. They won't change the page for now.
+    _onSettingsTapped() {
+      // TODO: Navigate to settings page
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings page not implemented yet.')));
+    }
+     _onHelpTapped() {
+      // TODO: Navigate to help page
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Help page not implemented yet.')));
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-           _buildNavItem(context, AppPage.dashboard, LucideIcons.settings, 'Settings'), // Placeholder
-           _buildNavItem(context, AppPage.dashboard, LucideIcons.helpCircle, 'Help'), // Placeholder
+           _buildFooterItem(context, LucideIcons.settings, 'Settings', _onSettingsTapped),
+           _buildFooterItem(context, LucideIcons.circleQuestionMark, 'Help', _onHelpTapped),
            _buildLogoutButton(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFooterItem(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+     return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.sidebarForeground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          alignment: Alignment.centerLeft,
+        ),
+        onPressed: onTap,
+        child: Row(
+          children: [
+            Icon(icon, size: 20),
+            if (isExpanded) ...[
+              const SizedBox(width: 12),
+              Text(label),
+            ]
+          ],
+        ),
       ),
     );
   }
