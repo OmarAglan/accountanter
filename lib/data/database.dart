@@ -6,15 +6,16 @@ import 'package:path/path.dart' as p;
 
 import 'tables/users.dart';
 import 'tables/licenses.dart';
+import 'tables/clients.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Users, Licenses])
+@DriftDatabase(tables: [Users, Licenses, Clients])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2; // We are now on version 2
+  int get schemaVersion => 3; // We are now on version 3
 
   // --- THIS IS THE FIX ---
   @override
@@ -35,6 +36,10 @@ class AppDatabase extends _$AppDatabase {
           // In a real app with user data, you would carefully migrate the data.
           await m.drop(users);
           await m.createTable(users);
+        }
+        if (from < 3) {
+          // We added the clients table in version 3
+          await m.createTable(clients);
         }
       },
     );
@@ -59,6 +64,13 @@ class AppDatabase extends _$AppDatabase {
   Future<void> createLocalUser(UsersCompanion user) {
     return into(users).insert(user);
   }
+
+  // --- Client-related methods ---
+  Future<List<Client>> getAllClients() => select(clients).get();
+  Stream<List<Client>> watchAllClients() => select(clients).watch();
+  Future<int> insertClient(ClientsCompanion client) => into(clients).insert(client);
+  Future<bool> updateClient(ClientsCompanion client) => update(clients).replace(client);
+  Future<int> deleteClient(int id) => (delete(clients)..where((c) => c.id.equals(id))).go();
   
   Future<void> factoryReset() async {
     await transaction(() async {
