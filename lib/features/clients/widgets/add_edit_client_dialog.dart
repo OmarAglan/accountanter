@@ -59,7 +59,7 @@ class _AddEditClientDialogState extends State<AddEditClientDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(labelText: 'Email Or Phone'),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),

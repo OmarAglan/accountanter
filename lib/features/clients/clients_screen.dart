@@ -189,13 +189,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
               child: TextField(
                 onChanged: (value) => setState(() => _searchTerm = value),
                 decoration: const InputDecoration(
-                  hintText: 'Search clients by name or email...',
+                  hintText: 'Search clients by name or email or phone...',
                   prefixIcon: Icon(LucideIcons.search, size: 16),
                   isDense: true,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
             SizedBox(
               width: 200,
               child: DropdownButtonFormField<String>(
@@ -225,7 +225,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(15.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -234,16 +234,17 @@ class _ClientsScreenState extends State<ClientsScreen> {
               ],
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 5),
           Container(
             color: AppColors.muted.withOpacity(0.5),
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            
             child: Row(
               children: [
                 _buildHeaderCell('Client Name', flex: 3),
                 _buildHeaderCell('Type', flex: 2),
                 _buildHeaderCell('Outstanding Balance', flex: 2, alignment: TextAlign.right),
-                _buildHeaderCell('Email', flex: 3),
+                _buildHeaderCell('Email Or Phone', flex: 3, alignment: TextAlign.left),
                 _buildHeaderCell('Actions', flex: 1, alignment: TextAlign.center),
               ],
             ),
