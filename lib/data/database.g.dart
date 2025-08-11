@@ -21,15 +21,16 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
-  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  static const VerificationMeta _usernameMeta = const VerificationMeta(
+    'username',
+  );
   @override
-  late final GeneratedColumn<String> email = GeneratedColumn<String>(
-    'email',
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+    'username',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _passwordHashMeta = const VerificationMeta(
     'passwordHash',
@@ -55,7 +56,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     defaultValue: currentDateAndTime,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, email, passwordHash, createdAt];
+  List<GeneratedColumn> get $columns => [id, username, passwordHash, createdAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -71,13 +72,13 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
-    if (data.containsKey('email')) {
+    if (data.containsKey('username')) {
       context.handle(
-        _emailMeta,
-        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+        _usernameMeta,
+        username.isAcceptableOrUnknown(data['username']!, _usernameMeta),
       );
     } else if (isInserting) {
-      context.missing(_emailMeta);
+      context.missing(_usernameMeta);
     }
     if (data.containsKey('password_hash')) {
       context.handle(
@@ -109,9 +110,9 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
-      email: attachedDatabase.typeMapping.read(
+      username: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}email'],
+        data['${effectivePrefix}username'],
       )!,
       passwordHash: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -132,12 +133,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
 
 class User extends DataClass implements Insertable<User> {
   final int id;
-  final String email;
+  final String username;
   final String passwordHash;
   final DateTime createdAt;
   const User({
     required this.id,
-    required this.email,
+    required this.username,
     required this.passwordHash,
     required this.createdAt,
   });
@@ -145,7 +146,7 @@ class User extends DataClass implements Insertable<User> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    map['email'] = Variable<String>(email);
+    map['username'] = Variable<String>(username);
     map['password_hash'] = Variable<String>(passwordHash);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -154,7 +155,7 @@ class User extends DataClass implements Insertable<User> {
   UsersCompanion toCompanion(bool nullToAbsent) {
     return UsersCompanion(
       id: Value(id),
-      email: Value(email),
+      username: Value(username),
       passwordHash: Value(passwordHash),
       createdAt: Value(createdAt),
     );
@@ -167,7 +168,7 @@ class User extends DataClass implements Insertable<User> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return User(
       id: serializer.fromJson<int>(json['id']),
-      email: serializer.fromJson<String>(json['email']),
+      username: serializer.fromJson<String>(json['username']),
       passwordHash: serializer.fromJson<String>(json['passwordHash']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -177,7 +178,7 @@ class User extends DataClass implements Insertable<User> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'email': serializer.toJson<String>(email),
+      'username': serializer.toJson<String>(username),
       'passwordHash': serializer.toJson<String>(passwordHash),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -185,19 +186,19 @@ class User extends DataClass implements Insertable<User> {
 
   User copyWith({
     int? id,
-    String? email,
+    String? username,
     String? passwordHash,
     DateTime? createdAt,
   }) => User(
     id: id ?? this.id,
-    email: email ?? this.email,
+    username: username ?? this.username,
     passwordHash: passwordHash ?? this.passwordHash,
     createdAt: createdAt ?? this.createdAt,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
       id: data.id.present ? data.id.value : this.id,
-      email: data.email.present ? data.email.value : this.email,
+      username: data.username.present ? data.username.value : this.username,
       passwordHash: data.passwordHash.present
           ? data.passwordHash.value
           : this.passwordHash,
@@ -209,7 +210,7 @@ class User extends DataClass implements Insertable<User> {
   String toString() {
     return (StringBuffer('User(')
           ..write('id: $id, ')
-          ..write('email: $email, ')
+          ..write('username: $username, ')
           ..write('passwordHash: $passwordHash, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -217,44 +218,44 @@ class User extends DataClass implements Insertable<User> {
   }
 
   @override
-  int get hashCode => Object.hash(id, email, passwordHash, createdAt);
+  int get hashCode => Object.hash(id, username, passwordHash, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is User &&
           other.id == this.id &&
-          other.email == this.email &&
+          other.username == this.username &&
           other.passwordHash == this.passwordHash &&
           other.createdAt == this.createdAt);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
   final Value<int> id;
-  final Value<String> email;
+  final Value<String> username;
   final Value<String> passwordHash;
   final Value<DateTime> createdAt;
   const UsersCompanion({
     this.id = const Value.absent(),
-    this.email = const Value.absent(),
+    this.username = const Value.absent(),
     this.passwordHash = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
-    required String email,
+    required String username,
     required String passwordHash,
     this.createdAt = const Value.absent(),
-  }) : email = Value(email),
+  }) : username = Value(username),
        passwordHash = Value(passwordHash);
   static Insertable<User> custom({
     Expression<int>? id,
-    Expression<String>? email,
+    Expression<String>? username,
     Expression<String>? passwordHash,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (email != null) 'email': email,
+      if (username != null) 'username': username,
       if (passwordHash != null) 'password_hash': passwordHash,
       if (createdAt != null) 'created_at': createdAt,
     });
@@ -262,13 +263,13 @@ class UsersCompanion extends UpdateCompanion<User> {
 
   UsersCompanion copyWith({
     Value<int>? id,
-    Value<String>? email,
+    Value<String>? username,
     Value<String>? passwordHash,
     Value<DateTime>? createdAt,
   }) {
     return UsersCompanion(
       id: id ?? this.id,
-      email: email ?? this.email,
+      username: username ?? this.username,
       passwordHash: passwordHash ?? this.passwordHash,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -280,8 +281,8 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
-    if (email.present) {
-      map['email'] = Variable<String>(email.value);
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
     }
     if (passwordHash.present) {
       map['password_hash'] = Variable<String>(passwordHash.value);
@@ -296,9 +297,279 @@ class UsersCompanion extends UpdateCompanion<User> {
   String toString() {
     return (StringBuffer('UsersCompanion(')
           ..write('id: $id, ')
-          ..write('email: $email, ')
+          ..write('username: $username, ')
           ..write('passwordHash: $passwordHash, ')
           ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LicensesTable extends Licenses with TableInfo<$LicensesTable, License> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LicensesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _licenseKeyEncryptedMeta =
+      const VerificationMeta('licenseKeyEncrypted');
+  @override
+  late final GeneratedColumn<String> licenseKeyEncrypted =
+      GeneratedColumn<String>(
+        'license_key_encrypted',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _activationDateMeta = const VerificationMeta(
+    'activationDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> activationDate =
+      GeneratedColumn<DateTime>(
+        'activation_date',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    licenseKeyEncrypted,
+    activationDate,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'licenses';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<License> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('license_key_encrypted')) {
+      context.handle(
+        _licenseKeyEncryptedMeta,
+        licenseKeyEncrypted.isAcceptableOrUnknown(
+          data['license_key_encrypted']!,
+          _licenseKeyEncryptedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_licenseKeyEncryptedMeta);
+    }
+    if (data.containsKey('activation_date')) {
+      context.handle(
+        _activationDateMeta,
+        activationDate.isAcceptableOrUnknown(
+          data['activation_date']!,
+          _activationDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activationDateMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  License map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return License(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      licenseKeyEncrypted: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}license_key_encrypted'],
+      )!,
+      activationDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}activation_date'],
+      )!,
+    );
+  }
+
+  @override
+  $LicensesTable createAlias(String alias) {
+    return $LicensesTable(attachedDatabase, alias);
+  }
+}
+
+class License extends DataClass implements Insertable<License> {
+  final int id;
+  final String licenseKeyEncrypted;
+  final DateTime activationDate;
+  const License({
+    required this.id,
+    required this.licenseKeyEncrypted,
+    required this.activationDate,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['license_key_encrypted'] = Variable<String>(licenseKeyEncrypted);
+    map['activation_date'] = Variable<DateTime>(activationDate);
+    return map;
+  }
+
+  LicensesCompanion toCompanion(bool nullToAbsent) {
+    return LicensesCompanion(
+      id: Value(id),
+      licenseKeyEncrypted: Value(licenseKeyEncrypted),
+      activationDate: Value(activationDate),
+    );
+  }
+
+  factory License.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return License(
+      id: serializer.fromJson<int>(json['id']),
+      licenseKeyEncrypted: serializer.fromJson<String>(
+        json['licenseKeyEncrypted'],
+      ),
+      activationDate: serializer.fromJson<DateTime>(json['activationDate']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'licenseKeyEncrypted': serializer.toJson<String>(licenseKeyEncrypted),
+      'activationDate': serializer.toJson<DateTime>(activationDate),
+    };
+  }
+
+  License copyWith({
+    int? id,
+    String? licenseKeyEncrypted,
+    DateTime? activationDate,
+  }) => License(
+    id: id ?? this.id,
+    licenseKeyEncrypted: licenseKeyEncrypted ?? this.licenseKeyEncrypted,
+    activationDate: activationDate ?? this.activationDate,
+  );
+  License copyWithCompanion(LicensesCompanion data) {
+    return License(
+      id: data.id.present ? data.id.value : this.id,
+      licenseKeyEncrypted: data.licenseKeyEncrypted.present
+          ? data.licenseKeyEncrypted.value
+          : this.licenseKeyEncrypted,
+      activationDate: data.activationDate.present
+          ? data.activationDate.value
+          : this.activationDate,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('License(')
+          ..write('id: $id, ')
+          ..write('licenseKeyEncrypted: $licenseKeyEncrypted, ')
+          ..write('activationDate: $activationDate')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, licenseKeyEncrypted, activationDate);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is License &&
+          other.id == this.id &&
+          other.licenseKeyEncrypted == this.licenseKeyEncrypted &&
+          other.activationDate == this.activationDate);
+}
+
+class LicensesCompanion extends UpdateCompanion<License> {
+  final Value<int> id;
+  final Value<String> licenseKeyEncrypted;
+  final Value<DateTime> activationDate;
+  const LicensesCompanion({
+    this.id = const Value.absent(),
+    this.licenseKeyEncrypted = const Value.absent(),
+    this.activationDate = const Value.absent(),
+  });
+  LicensesCompanion.insert({
+    this.id = const Value.absent(),
+    required String licenseKeyEncrypted,
+    required DateTime activationDate,
+  }) : licenseKeyEncrypted = Value(licenseKeyEncrypted),
+       activationDate = Value(activationDate);
+  static Insertable<License> custom({
+    Expression<int>? id,
+    Expression<String>? licenseKeyEncrypted,
+    Expression<DateTime>? activationDate,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (licenseKeyEncrypted != null)
+        'license_key_encrypted': licenseKeyEncrypted,
+      if (activationDate != null) 'activation_date': activationDate,
+    });
+  }
+
+  LicensesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? licenseKeyEncrypted,
+    Value<DateTime>? activationDate,
+  }) {
+    return LicensesCompanion(
+      id: id ?? this.id,
+      licenseKeyEncrypted: licenseKeyEncrypted ?? this.licenseKeyEncrypted,
+      activationDate: activationDate ?? this.activationDate,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (licenseKeyEncrypted.present) {
+      map['license_key_encrypted'] = Variable<String>(
+        licenseKeyEncrypted.value,
+      );
+    }
+    if (activationDate.present) {
+      map['activation_date'] = Variable<DateTime>(activationDate.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LicensesCompanion(')
+          ..write('id: $id, ')
+          ..write('licenseKeyEncrypted: $licenseKeyEncrypted, ')
+          ..write('activationDate: $activationDate')
           ..write(')'))
         .toString();
   }
@@ -308,24 +579,25 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $UsersTable users = $UsersTable(this);
+  late final $LicensesTable licenses = $LicensesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [users];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [users, licenses];
 }
 
 typedef $$UsersTableCreateCompanionBuilder =
     UsersCompanion Function({
       Value<int> id,
-      required String email,
+      required String username,
       required String passwordHash,
       Value<DateTime> createdAt,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
     UsersCompanion Function({
       Value<int> id,
-      Value<String> email,
+      Value<String> username,
       Value<String> passwordHash,
       Value<DateTime> createdAt,
     });
@@ -343,8 +615,8 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get email => $composableBuilder(
-    column: $table.email,
+  ColumnFilters<String> get username => $composableBuilder(
+    column: $table.username,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -373,8 +645,8 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get email => $composableBuilder(
-    column: $table.email,
+  ColumnOrderings<String> get username => $composableBuilder(
+    column: $table.username,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -401,8 +673,8 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get email =>
-      $composableBuilder(column: $table.email, builder: (column) => column);
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
 
   GeneratedColumn<String> get passwordHash => $composableBuilder(
     column: $table.passwordHash,
@@ -442,24 +714,24 @@ class $$UsersTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<String> email = const Value.absent(),
+                Value<String> username = const Value.absent(),
                 Value<String> passwordHash = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
-                email: email,
+                username: username,
                 passwordHash: passwordHash,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                required String email,
+                required String username,
                 required String passwordHash,
                 Value<DateTime> createdAt = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
-                email: email,
+                username: username,
                 passwordHash: passwordHash,
                 createdAt: createdAt,
               ),
@@ -485,10 +757,166 @@ typedef $$UsersTableProcessedTableManager =
       User,
       PrefetchHooks Function()
     >;
+typedef $$LicensesTableCreateCompanionBuilder =
+    LicensesCompanion Function({
+      Value<int> id,
+      required String licenseKeyEncrypted,
+      required DateTime activationDate,
+    });
+typedef $$LicensesTableUpdateCompanionBuilder =
+    LicensesCompanion Function({
+      Value<int> id,
+      Value<String> licenseKeyEncrypted,
+      Value<DateTime> activationDate,
+    });
+
+class $$LicensesTableFilterComposer
+    extends Composer<_$AppDatabase, $LicensesTable> {
+  $$LicensesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get licenseKeyEncrypted => $composableBuilder(
+    column: $table.licenseKeyEncrypted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get activationDate => $composableBuilder(
+    column: $table.activationDate,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LicensesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LicensesTable> {
+  $$LicensesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get licenseKeyEncrypted => $composableBuilder(
+    column: $table.licenseKeyEncrypted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get activationDate => $composableBuilder(
+    column: $table.activationDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LicensesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LicensesTable> {
+  $$LicensesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get licenseKeyEncrypted => $composableBuilder(
+    column: $table.licenseKeyEncrypted,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get activationDate => $composableBuilder(
+    column: $table.activationDate,
+    builder: (column) => column,
+  );
+}
+
+class $$LicensesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LicensesTable,
+          License,
+          $$LicensesTableFilterComposer,
+          $$LicensesTableOrderingComposer,
+          $$LicensesTableAnnotationComposer,
+          $$LicensesTableCreateCompanionBuilder,
+          $$LicensesTableUpdateCompanionBuilder,
+          (License, BaseReferences<_$AppDatabase, $LicensesTable, License>),
+          License,
+          PrefetchHooks Function()
+        > {
+  $$LicensesTableTableManager(_$AppDatabase db, $LicensesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LicensesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LicensesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LicensesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> licenseKeyEncrypted = const Value.absent(),
+                Value<DateTime> activationDate = const Value.absent(),
+              }) => LicensesCompanion(
+                id: id,
+                licenseKeyEncrypted: licenseKeyEncrypted,
+                activationDate: activationDate,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String licenseKeyEncrypted,
+                required DateTime activationDate,
+              }) => LicensesCompanion.insert(
+                id: id,
+                licenseKeyEncrypted: licenseKeyEncrypted,
+                activationDate: activationDate,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LicensesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LicensesTable,
+      License,
+      $$LicensesTableFilterComposer,
+      $$LicensesTableOrderingComposer,
+      $$LicensesTableAnnotationComposer,
+      $$LicensesTableCreateCompanionBuilder,
+      $$LicensesTableUpdateCompanionBuilder,
+      (License, BaseReferences<_$AppDatabase, $LicensesTable, License>),
+      License,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db, _db.users);
+  $$LicensesTableTableManager get licenses =>
+      $$LicensesTableTableManager(_db, _db.licenses);
 }

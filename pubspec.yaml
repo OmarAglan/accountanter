@@ -48,6 +48,8 @@ dependencies:
   path: ^1.9.1
   # The following adds the Crypto package to your application.
   crypto: ^3.0.6 # For password hashing
+  # For secure storage of sensitive data
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:

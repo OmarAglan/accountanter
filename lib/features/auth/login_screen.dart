@@ -1,15 +1,12 @@
-import 'package:accountanter/features/auth/forgot_password_screen.dart';
-import 'package:accountanter/features/auth/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-
 import 'auth_service.dart';
-import '../../data/database.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
+  final String? prefilledUsername;
 
-  const LoginScreen({super.key, required this.onLogin});
+  const LoginScreen({super.key, required this.onLogin, this.prefilledUsername});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -17,48 +14,43 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _showPassword = false;
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  late final AuthService _authService;
+  
+  bool _showPassword = false;
+  bool _rememberMe = false;
   bool _isLoading = false;
+  final _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    _authService = AuthService(AppDatabase());
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+    if (widget.prefilledUsername != null) {
+      _usernameController.text = widget.prefilledUsername!;
+      _rememberMe = true;
+    }
   }
 
   void _handleSubmit() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
 
-      final result = await _authService.login(
-        _emailController.text,
+      final success = await _authService.login(
+        _usernameController.text,
         _passwordController.text,
+        _rememberMe,
       );
 
       setState(() => _isLoading = false);
-      
-      if (!mounted) return;
 
-      if (result == AuthResult.success) {
+      if (success) {
         widget.onLogin();
       } else {
-        final message = (result == AuthResult.userNotFound || result == AuthResult.wrongPassword)
-          ? 'Invalid email or password.'
-          : 'An unexpected error occurred.';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid username or password.')),
+          );
+        }
       }
     }
   }
@@ -80,118 +72,60 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Logo and Header
+                    // Header remains the same...
                     Container(
-                      width: 64,
-                      height: 64,
+                      width: 64, height: 64,
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        LucideIcons.package,
-                        color: Theme.of(context).colorScheme.onPrimary,
-                        size: 32,
-                      ),
+                      child: Icon(LucideIcons.package, color: Theme.of(context).colorScheme.onPrimary, size: 32),
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      'Accountanter',
-                      textAlign: TextAlign.center,
-                      style: textTheme.headlineMedium
-                          ?.copyWith(color: Theme.of(context).colorScheme.primary, fontSize: 24),
-                    ),
+                    Text('Accountanter', textAlign: TextAlign.center, style: textTheme.headlineMedium?.copyWith(color: Theme.of(context).colorScheme.primary, fontSize: 24)),
                     const SizedBox(height: 8),
-                    Text(
-                      'Welcome Back',
-                      textAlign: TextAlign.center,
-                      style: textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in to manage your business finances',
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodyMedium,
-                    ),
+                    Text('Welcome Back', textAlign: TextAlign.center, style: textTheme.headlineSmall),
                     const SizedBox(height: 32),
 
-                    // Email Field
-                    Text('Email Address', style: textTheme.labelLarge?.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
+                    // Username Field
                     TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your email',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty || !value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
+                      controller: _usernameController,
+                      decoration: const InputDecoration(labelText: 'Username or Email'),
+                      validator: (v) => v!.isEmpty ? 'Username is required' : null,
                     ),
                     const SizedBox(height: 24),
 
                     // Password Field
-                    Text('Password', style: textTheme.labelLarge?.copyWith(fontSize: 14)),
-                    const SizedBox(height: 8),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_showPassword,
                       decoration: InputDecoration(
-                        hintText: 'Enter your password',
+                        labelText: 'Password',
                         suffixIcon: IconButton(
-                          icon: Icon(
-                            _showPassword ? LucideIcons.eyeOff : LucideIcons.eye,
-                            size: 16,
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _showPassword = !_showPassword;
-                            });
-                          },
+                          icon: Icon(_showPassword ? LucideIcons.eyeOff : LucideIcons.eye, size: 16),
+                          onPressed: () => setState(() => _showPassword = !_showPassword),
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
+                      validator: (v) => v!.isEmpty ? 'Password is required' : null,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
 
+                    // Remember Me Checkbox
+                    Row(
+                      children: [
+                        Checkbox(value: _rememberMe, onChanged: (val) => setState(() => _rememberMe = val!)),
+                        const SizedBox(width: 8),
+                        const Text('Remember Me'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
                     // Login Button
                     ElevatedButton(
                       onPressed: _isLoading ? null : _handleSubmit,
                       child: _isLoading
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Text('Login'),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (context) => const ForgotPasswordScreen(),
-                            ));
-                          },
-                          child: const Text('Forgot Password?'),
-                        ),
-                        const Text('|'),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (context) => const RegistrationScreen(),
-                            ));
-                          },
-                          child: const Text('Register'),
-                        ),
-                      ],
                     ),
                   ],
                 ),

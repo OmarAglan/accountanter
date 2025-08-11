@@ -4,14 +4,13 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../data/database.dart';
-
-// Enum to represent the result of an authentication attempt
-enum AuthResult { success, userNotFound, wrongPassword, userExists, failure }
+import '../../services/secure_storage_service.dart';
 
 class AuthService extends ChangeNotifier {
-  final AppDatabase _database;
+  final AppDatabase database; 
+  final _secureStorage = SecureStorageService();
 
-  AuthService(this._database);
+  AuthService() : database = AppDatabase();
 
   // --- Private Helper Methods ---
   String _hashPassword(String password) {
@@ -19,67 +18,65 @@ class AuthService extends ChangeNotifier {
     final digest = sha256.convert(bytes);
     return digest.toString();
   }
+  
+  // In a real app, this would check against a server or use public/private key crypto.
+  // For this local app, we'll just check if the key is a specific value.
+  bool _isLicenseKeySyntaxValid(String key) {
+    // Example: A valid key is "TEST-LICENSE-KEY"
+    return key == "TEST-LICENSE-KEY";
+  }
 
   // --- Public API ---
 
-  /// Attempts to log in a user with the given email and password.
-  Future<AuthResult> login(String email, String password) async {
-    try {
-      final user = await _database.getUserByEmail(email);
-      if (user == null) {
-        return AuthResult.userNotFound;
-      }
-      if (user.passwordHash != _hashPassword(password)) {
-        return AuthResult.wrongPassword;
-      }
-      // In a real app, you would store the user session here.
-      return AuthResult.success;
-    } catch (e) {
-      debugPrint('Login Error: $e');
-      return AuthResult.failure;
+  Future<bool> isAppActivated() async {
+    final license = await database.getLicense();
+    return license != null;
+  }
+  
+  Future<bool> validateAndSaveLicense(String licenseKey) async {
+    if (!_isLicenseKeySyntaxValid(licenseKey)) {
+      return false;
     }
+
+    final newLicense = LicensesCompanion(
+      licenseKeyEncrypted: Value(licenseKey), // In a real app, encrypt this!
+      activationDate: Value(DateTime.now()),
+    );
+    await database.saveLicense(newLicense);
+    return true;
   }
 
-  /// Registers a new user.
-  Future<AuthResult> register(String email, String password) async {
-    try {
-      final existingUser = await _database.getUserByEmail(email);
-      if (existingUser != null) {
-        return AuthResult.userExists;
-      }
-
-      final newUser = UsersCompanion(
-        email: Value(email),
-        passwordHash: Value(_hashPassword(password)),
-      );
-      
-      await _database.insertUser(newUser);
-      return AuthResult.success;
-    } catch (e) {
-      debugPrint('Registration Error: $e');
-      return AuthResult.failure;
-    }
+  Future<void> createLocalUser(String username, String password) async {
+    final newUser = UsersCompanion(
+      username: Value(username),
+      passwordHash: Value(_hashPassword(password)),
+    );
+    await database.createLocalUser(newUser);
   }
 
-  /// Updates the password for a given user.
-  /// This simulates the "forgot password" flow.
-  Future<AuthResult> resetPassword(String email, String newPassword) async {
-     try {
-      final user = await _database.getUserByEmail(email);
-      if (user == null) {
-        return AuthResult.userNotFound;
+  Future<bool> login(String username, String password, bool rememberMe) async {
+    final user = await database.getLocalUser();
+    if (user == null) return false;
+
+    if (user.username == username && user.passwordHash == _hashPassword(password)) {
+      if (rememberMe) {
+        await _secureStorage.saveRememberMeToken(username);
       }
-
-      final newHashedPassword = _hashPassword(newPassword);
-      
-      // Drift's update method
-      final updated = user.copyWith(passwordHash: newHashedPassword);
-      await (_database.update(_database.users)..replace(updated));
-
-      return AuthResult.success;
-    } catch (e) {
-      debugPrint('Password Reset Error: $e');
-      return AuthResult.failure;
+      return true;
     }
+    return false;
+  }
+  
+  Future<String?> getLoggedInUser() async {
+    return _secureStorage.getRememberMeToken();
+  }
+
+  Future<void> logout() async {
+    await _secureStorage.deleteRememberMeToken();
+  }
+
+  Future<void> factoryReset() async {
+    await database.factoryReset();
+    await _secureStorage.deleteRememberMeToken();
   }
 }
