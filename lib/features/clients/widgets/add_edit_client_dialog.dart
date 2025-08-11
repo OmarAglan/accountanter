@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Required for number input filtering
+import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' hide Column;
+import '../../../data/database.dart';
 
 class AddEditClientDialog extends StatefulWidget {
-  // We need to update the onSave callback to include the balance
+  final Client? client; // Optional client for editing
   final Function(String name, String email, String type, double balance) onSave;
 
-  const AddEditClientDialog({super.key, required this.onSave});
+  const AddEditClientDialog({super.key, this.client, required this.onSave});
 
   @override
   State<AddEditClientDialog> createState() => _AddEditClientDialogState();
@@ -16,16 +17,37 @@ class _AddEditClientDialogState extends State<AddEditClientDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _balanceController = TextEditingController(); // New controller
+  final _balanceController = TextEditingController();
   String _selectedType = 'Debtor';
+  bool get _isEditing => widget.client != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _nameController.text = widget.client!.name;
+      _emailController.text = widget.client!.email ?? '';
+      _balanceController.text = widget.client!.balance.abs().toStringAsFixed(2);
+      _selectedType = widget.client!.type;
+    }
+  }
+  
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _balanceController.dispose();
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add New Client'),
+      title: Text(_isEditing ? 'Edit Client' : 'Add New Client'),
       content: Form(
         key: _formKey,
-        child: SingleChildScrollView( // Wrap in SingleChildScrollView to prevent overflow
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -54,11 +76,10 @@ class _AddEditClientDialogState extends State<AddEditClientDialog> {
                 },
               ),
               const SizedBox(height: 16),
-              // --- NEW FIELD FOR BALANCE ---
               TextFormField(
                 controller: _balanceController,
-                decoration: const InputDecoration(
-                  labelText: 'Opening Balance',
+                decoration: InputDecoration(
+                  labelText: _isEditing ? 'Current Balance' : 'Opening Balance',
                   prefixText: '\$',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -83,12 +104,12 @@ class _AddEditClientDialogState extends State<AddEditClientDialog> {
                 _nameController.text,
                 _emailController.text,
                 _selectedType,
-                balance, // Pass the new balance value
+                balance,
               );
               Navigator.of(context).pop();
             }
           },
-          child: const Text('Save Client'),
+          child: Text(_isEditing ? 'Update Client' : 'Save Client'),
         ),
       ],
     );

@@ -14,7 +14,7 @@ class ClientsScreen extends StatefulWidget {
 }
 
 class _ClientsScreenState extends State<ClientsScreen> {
-  late final AppDatabase _database;
+  final AppDatabase _database = AppDatabase.instance;
   late Stream<List<Client>> _clientsStream;
   String _searchTerm = '';
   String _filterType = 'All Clients';
@@ -22,31 +22,72 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   void initState() {
     super.initState();
-    _database = AppDatabase.instance; 
     _clientsStream = _database.watchAllClients();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
   
   void _showAddClientDialog() {
     showDialog(
       context: context,
       builder: (context) => AddEditClientDialog(
-        onSave: (name, email, type, balance) { // Updated to accept balance
+        onSave: (name, email, type, balance) {
           final newClient = ClientsCompanion.insert(
             name: name,
             email: Value(email),
             type: type,
-            balance: Value(type == 'Creditor' ? -balance : balance), // Make balance negative for creditors
+            balance: Value(type == 'Creditor' ? -balance : balance),
           );
           _database.insertClient(newClient);
         },
       ),
     );
   }
+
+  void _showEditClientDialog(Client clientToEdit) {
+    showDialog(
+      context: context,
+      builder: (context) => AddEditClientDialog(
+        client: clientToEdit, // Pass existing client data to the dialog
+        onSave: (name, email, type, balance) {
+          final updatedClient = clientToEdit.toCompanion(false).copyWith(
+            name: Value(name),
+            email: Value(email),
+            type: Value(type),
+            balance: Value(type == 'Creditor' ? -balance : balance),
+          );
+          _database.updateClient(updatedClient);
+        },
+      ),
+    );
+  }
+
+  void _confirmAndDeleteClient(Client client) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Client'),
+          content: Text('Are you sure you want to delete "${client.name}"? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: AppColors.destructive),
+              child: const Text('Delete'),
+              onPressed: () {
+                _database.deleteClient(client.id);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -55,16 +96,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
       builder: (context, snapshot) {
         final allClients = snapshot.data ?? [];
         
-        // Apply filtering logic
         final filteredClients = allClients.where((client) {
           final searchLower = _searchTerm.toLowerCase();
           final nameMatches = client.name.toLowerCase().contains(searchLower);
           final emailMatches = client.email?.toLowerCase().contains(searchLower) ?? false;
-
           final typeMatches = _filterType == 'All Clients' ||
                               (_filterType == 'Debtors' && client.type == 'Debtor') ||
                               (_filterType == 'Creditors' && client.type == 'Creditor');
-
           return (nameMatches || emailMatches) && typeMatches;
         }).toList();
 
@@ -84,10 +122,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  // --- WIDGET BUILDER METHODS ---
-
   Widget _buildHeader(BuildContext context) {
-    // This is the same as before
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -124,7 +159,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = constraints.maxWidth < 1100 ? 2 : 4;
-        double childAspectRatio = constraints.maxWidth < 600 ? 2.5 : 3.0;
+        double childAspectRatio = constraints.maxWidth < 600 ? 2.0 : 2.2;
 
         return GridView.count(
           crossAxisCount: crossAxisCount,
@@ -185,6 +220,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   Widget _buildClientTable(BuildContext context, List<Client> clients, int totalCount) {
     final textTheme = Theme.of(context).textTheme;
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -199,7 +235,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ),
           ),
           const Divider(height: 1),
-          // Custom Table Header
           Container(
             color: AppColors.muted.withOpacity(0.5),
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -214,17 +249,22 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ),
           ),
           const Divider(height: 1),
-          // Custom Table Body
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: clients.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final client = clients[index];
-              return _buildDataRow(client);
-            },
-          ),
+          if (clients.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32.0),
+              child: Center(child: Text('No clients found.')),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: clients.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final client = clients[index];
+                return _buildDataRow(client);
+              },
+            ),
         ],
       ),
     );
@@ -243,7 +283,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   Widget _buildDataRow(Client client) {
     return InkWell(
-      onTap: () {}, // For future navigation to client detail page
+      onTap: () { /* For future navigation to client detail page */ },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Row(
@@ -279,12 +319,18 @@ class _ClientsScreenState extends State<ClientsScreen> {
               child: Align(
                 alignment: Alignment.center,
                 child: PopupMenuButton<String>(
-                  onSelected: (value) { /* TODO: Handle actions */ },
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showEditClientDialog(client);
+                    } else if (value == 'delete') {
+                      _confirmAndDeleteClient(client);
+                    }
+                  },
                   itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
                     const PopupMenuItem<String>(value: 'edit', child: Text('Edit')),
                     const PopupMenuItem<String>(value: 'delete', child: Text('Delete', style: TextStyle(color: AppColors.destructive))),
                   ],
-                  icon: const Icon(LucideIcons.moveHorizontal, size: 16),
+                  icon: const Icon(LucideIcons.ellipsisVertical, size: 16),
                 ),
               ),
             ),
