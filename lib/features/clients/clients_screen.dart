@@ -19,7 +19,7 @@ class ClientsScreen extends StatefulWidget {
 
 class _ClientsScreenState extends State<ClientsScreen> {
   final AppDatabase _database = AppDatabase.instance;
-  late Stream<List<Client>> _clientsStream;
+  late Stream<List<ClientWithBalance>> _clientsStream;
   String _searchTerm = '';
   String _filterType = 'All Clients';
   String _currencySymbol = '\$';
@@ -27,7 +27,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   @override
   void initState() {
     super.initState();
-    _clientsStream = _database.watchAllClients();
+    _clientsStream = _database.watchAllClientsWithBalance();
     _loadCurrencySymbol();
   }
 
@@ -103,12 +103,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Client>>(
+    return StreamBuilder<List<ClientWithBalance>>(
       stream: _clientsStream,
       builder: (context, snapshot) {
         final allClients = snapshot.data ?? [];
         
-        final filteredClients = allClients.where((client) {
+        final filteredClients = allClients.where((clientWithBalance) {
+          final client = clientWithBalance.client;
           final searchLower = _searchTerm.toLowerCase();
           final nameMatches = client.name.toLowerCase().contains(searchLower);
           final emailMatches = client.email?.toLowerCase().contains(searchLower) ?? false;
@@ -157,11 +158,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  Widget _buildSummaryCards(List<Client> clients) {
-    final totalReceivables = clients.where((c) => c.balance > 0).fold(0.0, (sum, c) => sum + c.balance);
-    final totalPayables = clients.where((c) => c.balance < 0).fold(0.0, (sum, c) => sum + c.balance.abs());
-    final debtors = clients.where((c) => c.type == 'Debtor').length;
-    final creditors = clients.where((c) => c.type == 'Creditor').length;
+  Widget _buildSummaryCards(List<ClientWithBalance> clients) {
+    final totalReceivables = clients
+        .where((c) => c.currentBalance > 0)
+        .fold(0.0, (sum, c) => sum + c.currentBalance);
+    final totalPayables = clients
+        .where((c) => c.currentBalance < 0)
+        .fold(0.0, (sum, c) => sum + c.currentBalance.abs());
+    final debtors = clients.where((c) => c.client.type == 'Debtor').length;
+    final creditors = clients.where((c) => c.client.type == 'Creditor').length;
     final currencyFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
 
 
@@ -227,7 +232,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  Widget _buildClientTable(BuildContext context, List<Client> clients) {
+  Widget _buildClientTable(BuildContext context, List<ClientWithBalance> clients) {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -264,7 +269,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  DataRow _buildDataRow(Client client) {
+  DataRow _buildDataRow(ClientWithBalance clientWithBalance) {
+    final client = clientWithBalance.client;
+    final currentBalance = clientWithBalance.currentBalance;
     final currencyFormat = NumberFormat.currency(symbol: _currencySymbol, decimalDigits: 2);
     
     return DataRow(cells: [
@@ -280,9 +287,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
       ),
       DataCell(
         Text(
-          currencyFormat.format(client.balance),
+          currencyFormat.format(currentBalance),
           style: TextStyle(
-            color: client.balance == 0 ? null : (client.balance > 0 ? AppColors.success : AppColors.destructive),
+            color: currentBalance == 0 ? null : (currentBalance > 0 ? AppColors.success : AppColors.destructive),
             fontFamily: 'monospace'
           ),
         )

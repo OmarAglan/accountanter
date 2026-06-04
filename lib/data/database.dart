@@ -45,6 +45,8 @@ class AppDatabase extends _$AppDatabase {
   static final AppDatabase instance = AppDatabase._internal();
   // --- SINGLETON SETUP END ---
 
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   factory AppDatabase() {
     return instance;
   }
@@ -160,10 +162,12 @@ class AppDatabase extends _$AppDatabase {
     allActivities.sort((a, b) => b.date.compareTo(a.date));
 
 
+    final totalReceivables = results[0] as double;
+
     return DashboardData(
-      totalReceivables: results[0] as double,
+      totalReceivables: totalReceivables,
       totalPayables: results[1] as double,
-      totalOutstandingBalance: results[0] as double, // For now, mapping to totalReceivables
+      totalOutstandingBalance: totalReceivables,
       activeClients: results[2] as int,
       overdueInvoicesCount: results[3] as int,
       invoicesDueSoonCount: results[4] as int,
@@ -176,16 +180,29 @@ class AppDatabase extends _$AppDatabase {
 
 
   // --- KPI Methods (used by getDashboardData) ---
-  Future<double> getTotalReceivables() {
-    final total = clients.balance.sum();
-    final query = selectOnly(clients)..addColumns([total])..where(clients.balance.isBiggerThanValue(0));
-    return query.map((row) => row.read(total) ?? 0.0).getSingle();
+  Future<ClientBalanceTotals> getClientBalanceTotals() async {
+    final clients = await getAllClientsWithBalance();
+    var receivables = 0.0;
+    var payables = 0.0;
+
+    for (final client in clients) {
+      final balance = client.currentBalance;
+      if (balance > 0) {
+        receivables += balance;
+      } else if (balance < 0) {
+        payables += balance.abs();
+      }
+    }
+
+    return ClientBalanceTotals(receivables: receivables, payables: payables);
   }
 
-  Future<double> getTotalPayables() {
-    final total = clients.balance.sum();
-    final query = selectOnly(clients)..addColumns([total])..where(clients.balance.isSmallerThanValue(0));
-    return query.map((row) => (row.read(total) ?? 0.0).abs()).getSingle();
+  Future<double> getTotalReceivables() async {
+    return (await getClientBalanceTotals()).receivables;
+  }
+
+  Future<double> getTotalPayables() async {
+    return (await getClientBalanceTotals()).payables;
   }
 
   Future<int> getActiveClientsCount() {
@@ -197,6 +214,69 @@ class AppDatabase extends _$AppDatabase {
   // --- Client Methods ---
   Future<List<Client>> getAllClients() => select(clients).get();
   Stream<List<Client>> watchAllClients() => select(clients).watch();
+  Future<List<ClientWithBalance>> getAllClientsWithBalance() async {
+    final allClients = await getAllClients();
+    final balances = await _getCurrentBalancesByClientId();
+    return allClients
+        .map((client) => ClientWithBalance(
+              client: client,
+              currentBalance: balances[client.id] ?? client.balance,
+            ))
+        .toList();
+  }
+
+  Stream<List<ClientWithBalance>> watchAllClientsWithBalance() {
+    return _clientBalanceRows().watch().asyncMap((rows) async {
+      final allClients = await getAllClients();
+      final balances = _mapCurrentBalancesByClientId(rows);
+      return allClients
+          .map((client) => ClientWithBalance(
+                client: client,
+                currentBalance: balances[client.id] ?? client.balance,
+              ))
+          .toList();
+    });
+  }
+
+  Future<Map<int, double>> _getCurrentBalancesByClientId() async {
+    return _mapCurrentBalancesByClientId(await _clientBalanceRows().get());
+  }
+
+  Map<int, double> _mapCurrentBalancesByClientId(List<QueryRow> rows) {
+    return {
+      for (final row in rows)
+        row.read<int>('client_id'): row.read<double>('current_balance'),
+    };
+  }
+
+  Selectable<QueryRow> _clientBalanceRows() {
+    return customSelect(
+      '''
+      SELECT
+        c.id AS client_id,
+        c.balance + COALESCE(
+          SUM(
+            CASE
+              WHEN i.status != 'Draft'
+              THEN i.total_amount - COALESCE(p.paid_amount, 0.0)
+              ELSE 0.0
+            END
+          ),
+          0.0
+        ) AS current_balance
+      FROM clients c
+      LEFT JOIN invoices i ON i.client_id = c.id
+      LEFT JOIN (
+        SELECT invoice_id, SUM(amount) AS paid_amount
+        FROM payments
+        GROUP BY invoice_id
+      ) p ON p.invoice_id = i.id
+      GROUP BY c.id, c.balance
+      ''',
+      readsFrom: {clients, invoices, payments},
+    );
+  }
+
   Future<int> insertClient(ClientsCompanion client) =>
       into(clients).insert(client);
   Future<bool> updateClient(ClientsCompanion client) =>
@@ -313,6 +393,17 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteInvoice(int invoiceId) {
     return transaction(() async {
+      final existingLineItems =
+          await (select(lineItems)..where((l) => l.invoiceId.equals(invoiceId)))
+              .get();
+
+      for (final li in existingLineItems) {
+        final inventoryItemId = li.inventoryItemId;
+        if (inventoryItemId == null) continue;
+        await _adjustInventoryQuantity(inventoryItemId, li.quantity);
+      }
+
+      await (delete(payments)..where((p) => p.invoiceId.equals(invoiceId))).go();
       await (delete(lineItems)..where((l) => l.invoiceId.equals(invoiceId))).go();
       await (delete(invoices)..where((i) => i.id.equals(invoiceId))).go();
     });
@@ -370,8 +461,17 @@ class AppDatabase extends _$AppDatabase {
 
   Future<bool> updatePayment(PaymentsCompanion payment) {
     return transaction(() async {
+      final existing = payment.id.present
+          ? await (select(payments)..where((p) => p.id.equals(payment.id.value)))
+              .getSingleOrNull()
+          : null;
       final ok = await update(payments).replace(payment);
-      await _recalculateInvoicePaymentStatus(payment.invoiceId.value);
+      final oldInvoiceId = existing?.invoiceId;
+      final newInvoiceId = payment.invoiceId.value;
+      if (oldInvoiceId != null && oldInvoiceId != newInvoiceId) {
+        await _recalculateInvoicePaymentStatus(oldInvoiceId);
+      }
+      await _recalculateInvoicePaymentStatus(newInvoiceId);
       return ok;
     });
   }
@@ -565,6 +665,28 @@ class InvoiceWithStats {
   });
 
   double get balance => invoice.totalAmount - paidAmount;
+}
+
+class ClientWithBalance {
+  final Client client;
+  final double currentBalance;
+
+  ClientWithBalance({
+    required this.client,
+    required this.currentBalance,
+  });
+
+  double get openingBalance => client.balance;
+}
+
+class ClientBalanceTotals {
+  final double receivables;
+  final double payables;
+
+  ClientBalanceTotals({
+    required this.receivables,
+    required this.payables,
+  });
 }
 
 class InvoiceDetails {

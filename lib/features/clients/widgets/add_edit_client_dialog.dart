@@ -89,7 +89,7 @@ class _AddEditClientDialogState extends State<AddEditClientDialog> {
               TextFormField(
                 controller: _balanceController,
                 decoration: InputDecoration(
-                  labelText: _isEditing ? 'Current Balance' : 'Opening Balance',
+                  labelText: 'Opening Balance',
                   prefixText: _currencySymbol,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
